@@ -88,6 +88,33 @@ python -m export_service.template_setup --force
 
 You can then open the generated `.docx` files in Word, make stylistic tweaks, and keep them outside of version control.
 
+### XLSX-only requests
+To request only an Excel workbook (no DOCX/PDF), set the render options accordingly and include your table data. Table rows can be provided as dictionaries **or** as ordered lists; list values are mapped to the provided `columns` and padded with `null` for missing cells. Extra values beyond the declared columns are kept using `column_#` keys.
+
+```json
+{
+  "title": "Example",
+  "summary": "XLSX export",
+  "session_id": "123",
+  "tables": [
+    {
+      "name": "Victorian Legislative Council",
+      "columns": ["Name", "Electorate", "Email"],
+      "rows": [
+        ["Ryan Batchelor MLC", "Southern Metropolitan Region", "ryan.batchelor@parliament.vic.gov.au"],
+        ["Melina Bath MLC", "Eastern Victoria Region"]
+      ]
+    }
+  ],
+  "options": {
+    "include_pdf": false,
+    "include_pptx": false,
+    "include_xlsx": true,
+    "zip_all": false
+  }
+}
+```
+
 ## Testing
 ```
 pytest
