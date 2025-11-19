@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from urllib.parse import quote_plus
 
 from .auth import authenticate
 from . import config
@@ -44,7 +45,7 @@ def job_status(job_id: str, token: str = Depends(authenticate)):
         result = None
         if job.status == "complete" and job.result_path:
             result = {
-                "download_url": f"/api/v1/download/{job_id}",
+                "download_url": f"/api/v1/download/{job_id}?api_key={quote_plus(token)}",
                 "expires_at": job.expires_at.isoformat() if job.expires_at else None,
             }
         return JobStatusResponse(
