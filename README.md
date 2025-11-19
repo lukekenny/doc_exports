@@ -67,6 +67,16 @@ docker compose up --build
 ```
 API will listen on `http://localhost:8000`.
 
+For prebuilt images hosted on GitHub Container Registry (e.g., when deploying through Portainer), use `docker-compose.portainer.yml`. It expects two environment variables that point at the published images:
+
+```
+API_IMAGE=ghcr.io/<org>/doc_exports:latest
+WORKER_IMAGE=ghcr.io/<org>/doc_exports-worker:latest
+docker compose -f docker-compose.portainer.yml up -d
+```
+
+Volumes defined in that file keep `/data`, `/app/storage`, and `/app/templates` persistent across container restarts so Portainer can manage upgrades safely.
+
 ## Templates
 Sample `.docx` templates are generated on demand the first time the app imports its settings. No binary documents are stored in git—`export_service.template_setup` writes simple Word files that already contain the docxtpl placeholders referenced in `docs/TEMPLATES.md` and drops a placeholder logo under `templates/assets/logo.png`.
 

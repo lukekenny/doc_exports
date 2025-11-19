@@ -1,0 +1,51 @@
+version: "3.9"
+
+x-common-env: &common-env
+  API_KEY: ${API_KEY:-change-me}
+  DATABASE_URL: ${DATABASE_URL:-sqlite:////data/export_jobs.db}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  FILE_TTL_HOURS: ${FILE_TTL_HOURS:-24}
+
+services:
+  export-api:
+    image: ${API_IMAGE:?Set API_IMAGE to the GitHub Container Registry image for the API service}
+    container_name: export-api
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+    volumes:
+      - export-data:/data
+      - export-storage:/app/storage
+      - export-templates:/app/templates
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      - redis
+
+  export-worker:
+    image: ${WORKER_IMAGE:?Set WORKER_IMAGE to the GitHub Container Registry image for the worker service}
+    container_name: export-worker
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+    volumes:
+      - export-data:/data
+      - export-storage:/app/storage
+      - export-templates:/app/templates
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7
+    container_name: export-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+volumes:
+  export-data:
+  export-storage:
+  export-templates:
+  redis-data:
