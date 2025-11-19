@@ -95,7 +95,16 @@ pytest
 Sets `CELERY_TASK_ALWAYS_EAGER=1` so Celery tasks run synchronously.
 
 ## Open WebUI Integration
-Use `openwebui_plugin/export_plugin.js` as a reference plugin to add an Export button. Configure the API base URL and token storage per your deployment.
+`openwebui_plugin/export_tool.py` is a fully compliant Open WebUI **Tools** plugin. Paste the contents into the Tools workspace ("Create Tool" → "Import from file") to expose a callable `export_session` function to the assistant or code interpreter. Configure the following environment variables in Open WebUI so the tool can reach this service:
+
+| Variable | Purpose |
+| --- | --- |
+| `EXPORT_SERVICE_URL` | Base URL for the FastAPI export service (e.g., `http://localhost:8000`). |
+| `EXPORT_API_KEY` | Bearer token that must match the `API_KEY` configured on the export service. |
+| `EXPORT_POLL_INTERVAL` | Optional override (seconds) for status polling cadence. |
+| `EXPORT_POLL_TIMEOUT` | Optional override (seconds) for how long to wait before returning an in-progress status. |
+
+The tool accepts session metadata (title, summary, sections, tables, and rendering options), queues an export job, and optionally waits for the download URL to become available—all from within the native Python tool runtime described in the [Open WebUI plugin documentation](https://openwebui.com/).
 
 ## Background Jobs
 - Celery task `export_service.process_export`
