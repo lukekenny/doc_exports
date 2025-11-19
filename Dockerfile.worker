@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y libreoffice && rm -rf /var/lib/apt/list
 
 WORKDIR /app
 COPY pyproject.toml /app/
+COPY export_service /app/export_service
 RUN pip install --no-cache-dir -e .
 COPY . /app
 ENV API_KEY=dev-secret
