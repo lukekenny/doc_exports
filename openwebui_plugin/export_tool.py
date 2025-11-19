@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from urllib.parse import urljoin
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -159,7 +160,7 @@ class Tools:
 
                     if current_status == "complete" and status_payload.get("result"):
                         result = status_payload["result"]
-                        download_url = httpx.URL(base_url).join(result["download_url"]).human_repr()
+                        download_url = urljoin(f"{base_url.rstrip('/')}/", result["download_url"])
                         return {
                             "job_id": job_id,
                             "status": "complete",
