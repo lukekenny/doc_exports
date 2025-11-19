@@ -10,6 +10,7 @@ celery_app = Celery(
     "export_service",
     broker=config.settings.broker_url,
     backend=config.settings.result_backend,
+    include=["export_service.jobs"],
 )
 celery_app.conf.update(
     task_serializer="json",
