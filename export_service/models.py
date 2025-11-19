@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, RootModel, field_validator
+from pydantic import BaseModel, Field, RootModel, field_validator, model_validator
 
 
 class Section(BaseModel):
@@ -25,6 +25,34 @@ class Table(BaseModel):
     name: str = Field(..., min_length=1)
     columns: List[str]
     rows: List[TableRow]
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_rows(cls, values):
+        rows = values.get("rows") or []
+        columns = values.get("columns") or []
+        normalized_rows: List[dict] = []
+        for row in rows:
+            if isinstance(row, TableRow):
+                normalized_rows.append(row.root)
+                continue
+            if isinstance(row, dict):
+                normalized_rows.append(row)
+                continue
+            if isinstance(row, (list, tuple)):
+                mapped: dict = {}
+                for idx, value in enumerate(row):
+                    if idx < len(columns):
+                        mapped[columns[idx]] = value
+                    else:
+                        mapped[f"column_{idx + 1}"] = value
+                for idx in range(len(row), len(columns)):
+                    mapped[columns[idx]] = None
+                normalized_rows.append(mapped)
+                continue
+            raise TypeError("table rows must be dictionaries or lists")
+        values["rows"] = normalized_rows
+        return values
 
     @field_validator("rows")
     def limit_rows(cls, value):
