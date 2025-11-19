@@ -36,11 +36,11 @@ class TableInput(BaseModel):
 
     name: str = Field(..., description="Human friendly table title")
     columns: List[str] = Field(
-        default_factory=list,
+        ...,
         description="Ordered column names; rows should only use these keys",
     )
     rows: List[Dict[str, Any]] = Field(
-        default_factory=list,
+        ...,
         description="List of rows matching the declared columns",
     )
 
