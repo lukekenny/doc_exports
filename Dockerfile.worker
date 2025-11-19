@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y libreoffice && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml /app/
+RUN pip install --no-cache-dir -e .
+COPY . /app
+ENV API_KEY=dev-secret
+
+CMD ["celery", "-A", "export_service.worker.celery_app", "worker", "--loglevel=INFO"]

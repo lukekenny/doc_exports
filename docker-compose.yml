@@ -1,0 +1,39 @@
+version: '3.9'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      API_KEY: dev-secret
+      DATABASE_URL: sqlite:////data/export_jobs.db
+      REDIS_URL: redis://redis:6379/0
+      FILE_TTL_HOURS: 24
+    volumes:
+      - ./storage:/app/storage
+      - ./templates:/app/templates
+      - api-data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      API_KEY: dev-secret
+      DATABASE_URL: sqlite:////data/export_jobs.db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./storage:/app/storage
+      - ./templates:/app/templates
+      - api-data:/data
+    depends_on:
+      - redis
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+volumes:
+  api-data:
