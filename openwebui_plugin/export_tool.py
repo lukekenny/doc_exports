@@ -24,6 +24,18 @@ description: |
   - "Build a PowerPoint presentation from these sections."
   - "Produce a PDF and text summary, zipped together."
 
+  **XLSX-only behavior**
+
+  To request only an Excel workbook (no DOCX/PDF/TXT), set `requested_formats`
+  to include `xlsx` (or say "excel"/"spreadsheet") and the tool will:
+  - Enable `include_xlsx`
+  - Disable `include_pdf`, `include_pptx`, and `include_txt`
+  - Set `zip_all` to false unless multiple formats are requested
+  - Set `primary_format` to "xlsx"
+
+  The `template` field is required for DOCX/PDF but is ignored for XLSX-only
+  exports.
+
 requirements: httpx
 """
 
@@ -32,7 +44,7 @@ from __future__ import annotations
 import asyncio
 import os
 from urllib.parse import urljoin
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import httpx
 from pydantic import BaseModel, Field
@@ -56,16 +68,24 @@ class TableInput(BaseModel):
         ...,
         description="Ordered column names; rows should only use these keys",
     )
-    rows: List[Dict[str, Any]] = Field(
+    rows: List[Union[Dict[str, Any], List[Any]]] = Field(
         ...,
-        description="List of rows matching the declared columns",
+        description=(
+            "List of rows matching the declared columns. Each row may be a dict "
+            "mapping column->value OR a list whose values correspond to columns "
+            "by position (extra values kept as column_# keys; missing values "
+            "padded with null)."
+        ),
     )
 
 
 class ExportOptionsInput(BaseModel):
     template: str = Field(
         "summary_template.docx",
-        description="Name of the DOCX template available inside the export service",
+        description=(
+            "Base DOCX template used when rendering Word/PDF output. "
+            "Ignored for XLSX-only, PPTX-only, or TXT-only exports."
+        ),
     )
     include_pdf: bool = Field(False, description="Toggle DOCX to PDF conversion")
     include_pptx: bool = Field(False, description="Render a PowerPoint deck (pptx)")
