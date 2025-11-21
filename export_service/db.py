@@ -41,6 +41,7 @@ class Job(Base):
     options = Column(JSON, nullable=False, default=dict)
     progress = Column(Integer, nullable=False, default=0)
     result_path = Column(String, nullable=True)
+    download_code = Column(String, nullable=True, unique=True)
     expires_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
 
