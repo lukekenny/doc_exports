@@ -45,7 +45,7 @@ def job_status(job_id: str, token: str = Depends(authenticate)):
         result = None
         if job.status == "complete" and job.result_path:
             result = {
-                "download_url": f"/api/v1/download/{job_id}?api_key={quote_plus(token)}",
+                "download_url": f"/api/v1/download/{job_id}?code={quote_plus(job.download_code or '')}",
                 "expires_at": job.expires_at.isoformat() if job.expires_at else None,
             }
         return JobStatusResponse(
@@ -58,11 +58,13 @@ def job_status(job_id: str, token: str = Depends(authenticate)):
 
 
 @app.get("/api/v1/download/{job_id}")
-def download(job_id: str, token: str = Depends(authenticate)):
+def download(job_id: str, code: str | None = None):
     with session_scope() as session:
         job = session.get(Job, job_id)
         if not job or job.status != "complete" or not job.result_path:
             raise HTTPException(status_code=404, detail="Result not available")
+        if not code or code != job.download_code:
+            raise HTTPException(status_code=401, detail="Invalid or missing download code")
         path = Path(job.result_path)
         if not path.exists():
             raise HTTPException(status_code=404, detail="File expired")

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import secrets
 import shutil
 import tempfile
-import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -21,6 +21,14 @@ from .db import Job, session_scope
 from . import config
 
 
+def _generate_download_code(session) -> str:
+    while True:
+        code = secrets.token_urlsafe(6)
+        exists = session.query(Job.id).filter_by(download_code=code).first()
+        if not exists:
+            return code
+
+
 def _update_job(job_id: str, **kwargs):
     with session_scope() as session:
         job = session.get(Job, job_id)
@@ -32,13 +40,16 @@ def _update_job(job_id: str, **kwargs):
 
 def _finalize(job_id: str, path: Path):
     result = storage_client.save(path, expires_in_hours=config.settings.file_ttl_hours)
-    _update_job(
-        job_id,
-        status="complete",
-        result_path=str(result["path"]),
-        progress=100,
-        expires_at=result["expires_at"],
-    )
+    with session_scope() as session:
+        job = session.get(Job, job_id)
+        if not job:
+            return
+        if not job.download_code:
+            job.download_code = _generate_download_code(session)
+        job.status = "complete"
+        job.result_path = str(result["path"])
+        job.progress = 100
+        job.expires_at = result["expires_at"]
 
 
 @celery_app.task(name="export_service.process_export")

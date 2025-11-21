@@ -31,5 +31,8 @@ def test_export_flow(client):
     data = status.json()
     assert data["status"] in {"complete", "running", "pending", "failed"}
     if data["status"] == "complete":
-        download = client.get(data["result"]["download_url"], headers={"Authorization": "Bearer test-key"})
+        download_url = data["result"]["download_url"]
+        assert "api_key" not in download_url
+        assert "code=" in download_url
+        download = client.get(download_url)
         assert download.status_code == 200
