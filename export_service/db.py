@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Generator, Optional
 
-from sqlalchemy import JSON, Column, DateTime, Integer, MetaData, String, Text, create_engine
+from sqlalchemy import JSON, Column, DateTime, Integer, MetaData, String, Text, create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from . import config
@@ -26,6 +26,27 @@ def create_db_engine():
 
 engine = create_db_engine()
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def _ensure_download_code_column(engine):
+    inspector = inspect(engine)
+    columns = {column["name"] for column in inspector.get_columns(Job.__tablename__)}
+    if "download_code" in columns:
+        return
+
+    column = Job.__table__.c.download_code
+    column_type = column.type.compile(engine.dialect)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                f"ALTER TABLE {Job.__tablename__} ADD COLUMN {column.name} {column_type}"
+            )
+        )
+
+
+def run_migrations(current_engine=None):
+    engine_to_use = current_engine or engine
+    _ensure_download_code_column(engine_to_use)
 
 
 class Job(Base):
@@ -62,6 +83,7 @@ class Job(Base):
 
 
 Base.metadata.create_all(engine)
+run_migrations()
 
 
 def reload_engine():
@@ -70,6 +92,7 @@ def reload_engine():
     engine = create_db_engine()
     SessionLocal.configure(bind=engine)
     Base.metadata.create_all(engine)
+    run_migrations(engine)
 
 
 @contextmanager
