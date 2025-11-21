@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from urllib.parse import quote_plus
 
 from .auth import authenticate
@@ -17,6 +17,11 @@ from .models import ExportJobResponse, ExportRequest, JobStatusResponse
 from .jobs import process_export
 
 app = FastAPI(title="Open WebUI Export Service", version="0.1.0")
+
+
+@app.get("/", response_class=PlainTextResponse)
+def root() -> str:
+    return "Open WebUI Document Exporter Backend"
 
 
 @app.post("/api/v1/export", response_model=ExportJobResponse, status_code=202)
