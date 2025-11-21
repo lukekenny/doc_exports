@@ -65,11 +65,12 @@ class ExportOptions(BaseModel):
     template: str = Field("summary_template.docx")
     include_pdf: bool = False
     include_pptx: bool = False
-    include_xlsx: bool = True
+    include_xlsx: bool = False
     include_txt: bool = False
     zip_all: bool = True
     locale: str = Field("en-US")
     page_orientation: str = Field("portrait")
+    primary_format: str = Field("docx")
 
 
 class ExportRequest(BaseModel):
