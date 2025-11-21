@@ -17,7 +17,7 @@ def payload():
                 "rows": [{"region": "East", "sales": 100}],
             }
         ],
-        "options": {"include_pdf": False, "zip_all": True},
+        "options": {"include_pdf": False, "include_txt": True, "zip_all": True},
     }
 
 

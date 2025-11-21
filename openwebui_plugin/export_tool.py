@@ -1,6 +1,6 @@
 """
 name: session_exporter
-version: 0.2.0
+version: 0.2.1
 min_sdk_version: 0.0.1
 description: |
   Native Python tool for Open WebUI that queues document export jobs via the
@@ -53,6 +53,7 @@ class ExportOptionsInput(BaseModel):
     include_pdf: bool = Field(False, description="Toggle DOCX to PDF conversion")
     include_pptx: bool = Field(False, description="Render a PowerPoint deck")
     include_xlsx: bool = Field(True, description="Render spreadsheet output")
+    include_txt: bool = Field(False, description="Render a plain text summary")
     zip_all: bool = Field(True, description="Bundle every artifact in a .zip file")
     locale: str = Field("en-US", description="Locale passed to docxtpl/pandas formatters")
     page_orientation: str = Field(

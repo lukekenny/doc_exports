@@ -4,6 +4,7 @@ from zipfile import ZipFile
 from export_service.doc_renderer import DocRenderer
 from export_service.excel_renderer import ExcelRenderer
 from export_service.models import ExportRequest, ExportOptions, Section, Table, TableRow
+from export_service.text_renderer import TextRenderer
 
 
 def sample_request() -> ExportRequest:
@@ -75,3 +76,15 @@ def test_excel_renderer_accepts_list_rows(tmp_path):
         "phone": "999",
         "column_4": "extra",
     }
+
+
+def test_text_renderer_outputs_plain_text(tmp_path):
+    renderer = TextRenderer()
+    request = sample_request()
+    request.options.include_txt = True
+    output = renderer.render(request, tmp_path)
+    assert output.exists()
+    content = output.read_text()
+    assert "Monthly Sales" in content
+    assert "Overview" in content
+    assert "East" in content
