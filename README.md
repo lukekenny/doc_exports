@@ -1,12 +1,13 @@
 # Open WebUI Export Service
 
-A FastAPI + Celery service that converts Open WebUI sessions into DOCX, XLSX, optional PDF files, and downloadable ZIP bundles. Includes templates, worker infrastructure, and a sample Open WebUI plugin button.
+A FastAPI + Celery service that converts Open WebUI sessions into DOCX, XLSX, optional PDF/plain text files, and downloadable ZIP bundles. Includes templates, worker infrastructure, and a sample Open WebUI plugin button.
 
 ## Features
 - REST API (`/api/v1/export`, `/status/{job_id}`, `/download/{job_id}`)
 - DOCX generation via docxtpl + prebuilt templates
 - XLSX sheets via pandas/openpyxl with column auto-width, frozen header row
 - Optional DOCX→PDF conversion (LibreOffice)
+- Optional plain text summaries for lightweight exports
 - ZIP bundling with manifest metadata
 - Celery background jobs + Redis broker
 - Local disk storage with TTL and download endpoint

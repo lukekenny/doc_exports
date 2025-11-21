@@ -66,6 +66,7 @@ class ExportOptions(BaseModel):
     include_pdf: bool = False
     include_pptx: bool = False
     include_xlsx: bool = True
+    include_txt: bool = False
     zip_all: bool = True
     locale: str = Field("en-US")
     page_orientation: str = Field("portrait")

@@ -13,6 +13,7 @@ from .excel_renderer import ExcelRenderer
 from .models import ExportRequest
 from .pdf_converter import LibreOfficeNotFound, docx_to_pdf
 from .storage import storage_client
+from .text_renderer import TextRenderer
 from .worker import celery_app
 from .zipper import bundle
 from .db import Job, session_scope
@@ -51,10 +52,15 @@ def process_export(job_id: str):
     try:
         doc_renderer = DocRenderer()
         excel_renderer = ExcelRenderer()
+        text_renderer = TextRenderer()
         artifacts = []
         docx_path = doc_renderer.render(payload, temp_dir)
         artifacts.append(docx_path)
-        _update_job(job_id, progress=40)
+        _update_job(job_id, progress=30)
+        if payload.options.include_txt:
+            txt_path = text_renderer.render(payload, temp_dir)
+            artifacts.append(txt_path)
+        _update_job(job_id, progress=45)
         xlsx_path = None
         if payload.options.include_xlsx:
             xlsx_path = excel_renderer.render(payload, temp_dir)
