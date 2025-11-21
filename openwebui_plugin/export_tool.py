@@ -1,12 +1,29 @@
 """
-name: session_exporter
-version: 0.2.1
+name: Document Exporter
+version: 0.3.0
 min_sdk_version: 0.0.1
 description: |
   Native Python tool for Open WebUI that queues document export jobs via the
   FastAPI service included in this repository. The tool submits the current
   session metadata, polls job status, and returns download links when
   available.
+
+  **Supported document types**
+  - Word document (`doc` / `docx`)
+  - Excel spreadsheet (`xlsx`)
+  - PowerPoint presentation (`pptx`)
+  - PDF
+  - Plain text (`txt`)
+  - ZIP bundle (automatically used when multiple formats are requested)
+
+  Short identifier: `doc_exports`.
+
+  Ask the assistant to be explicit about the desired format. Example prompts:
+  - "Export a Word report using the summary template."
+  - "Generate an Excel spreadsheet of the tables only."
+  - "Build a PowerPoint presentation from these sections."
+  - "Produce a PDF and text summary, zipped together."
+
 requirements: httpx
 """
 
@@ -51,14 +68,25 @@ class ExportOptionsInput(BaseModel):
         description="Name of the DOCX template available inside the export service",
     )
     include_pdf: bool = Field(False, description="Toggle DOCX to PDF conversion")
-    include_pptx: bool = Field(False, description="Render a PowerPoint deck")
-    include_xlsx: bool = Field(True, description="Render spreadsheet output")
-    include_txt: bool = Field(False, description="Render a plain text summary")
-    zip_all: bool = Field(True, description="Bundle every artifact in a .zip file")
+    include_pptx: bool = Field(False, description="Render a PowerPoint deck (pptx)")
+    include_xlsx: bool = Field(
+        False, description="Render spreadsheet output (xlsx). Enable when the user asks for spreadsheets."
+    )
+    include_txt: bool = Field(False, description="Render a plain text summary (txt)")
+    zip_all: bool = Field(
+        True,
+        description="Bundle every artifact in a .zip file; automatically enabled when multiple formats are requested",
+    )
     locale: str = Field("en-US", description="Locale passed to docxtpl/pandas formatters")
     page_orientation: str = Field(
         "portrait",
         description="DOCX orientation, e.g. portrait or landscape",
+    )
+    primary_format: str = Field(
+        "docx",
+        description=(
+            "Primary file format to return when ZIP bundling is disabled (docx, xlsx, pptx, pdf, or txt)."
+        ),
     )
 
 
@@ -66,8 +94,10 @@ class Tools:
     """Collection of callable functions exposed to Open WebUI."""
 
     def __init__(self) -> None:
-        self.default_base_url = os.getenv("EXPORT_SERVICE_URL", "http://localhost:8000")
-        self.default_api_key = os.getenv("EXPORT_API_KEY")
+        self.default_base_url = os.getenv(
+            "EXPORT_SERVICE_URL", "http://oracle-docker.smallcreek.com.au:8123"
+        )
+        self.default_api_key = os.getenv("EXPORT_API_KEY", "change-me")
         self.default_poll_interval = float(os.getenv("EXPORT_POLL_INTERVAL", "1.5"))
         self.default_poll_timeout = float(os.getenv("EXPORT_POLL_TIMEOUT", "60"))
         self.timeout = httpx.Timeout(30.0, connect=10.0)
@@ -81,6 +111,7 @@ class Tools:
         sections: Optional[List[SectionInput]] = None,
         tables: Optional[List[TableInput]] = None,
         options: Optional[ExportOptionsInput] = None,
+        requested_formats: Optional[List[str]] = None,
         api_base: Optional[str] = None,
         api_key: Optional[str] = None,
         wait_for_completion: bool = True,
@@ -97,6 +128,9 @@ class Tools:
             sections: List of section payloads that become DOCX paragraphs.
             tables: List of tabular datasets rendered inside XLSX/DOCX.
             options: Extra rendering toggles (template file, PDF/XLSX switches).
+            requested_formats: List of human-friendly format names (docx, word, pdf, xlsx, spreadsheet,
+                pptx, presentation, txt, text, zip). These inputs are normalized into the correct rendering flags
+                so the export service receives the right document request.
             api_base: Override for the export service URL (defaults to EXPORT_SERVICE_URL).
             api_key: Override for the bearer token (defaults to EXPORT_API_KEY).
             wait_for_completion: When False the method returns immediately after queueing the job.
@@ -129,7 +163,7 @@ class Tools:
             "tables": [
                 table.model_dump() if isinstance(table, TableInput) else table for table in (tables or [])
             ],
-            "options": self._coerce_options(options),
+            "options": self._coerce_options(options, requested_formats=requested_formats),
         }
 
         headers = {"Authorization": f"Bearer {resolved_token}"}
@@ -188,9 +222,52 @@ class Tools:
             raise RuntimeError(f"Unable to reach export service at {base_url}: {exc}") from exc
 
     @staticmethod
-    def _coerce_options(value: Optional[ExportOptionsInput | Dict[str, Any]]) -> Dict[str, Any]:
+    def _coerce_options(
+        value: Optional[ExportOptionsInput | Dict[str, Any]],
+        *,
+        requested_formats: Optional[List[str]],
+    ) -> Dict[str, Any]:
         if isinstance(value, ExportOptionsInput):
-            return value.model_dump()
-        if isinstance(value, dict):
-            return ExportOptionsInput(**value).model_dump()
-        return ExportOptionsInput().model_dump()
+            base_options = value.model_dump()
+        elif isinstance(value, dict):
+            base_options = ExportOptionsInput(**value).model_dump()
+        else:
+            base_options = ExportOptionsInput().model_dump()
+        if requested_formats:
+            normalized = {fmt.strip().lower() for fmt in requested_formats if fmt}
+            format_flags = {
+                "doc": "docx",
+                "docx": "docx",
+                "word": "docx",
+                "word document": "docx",
+                "xlsx": "xlsx",
+                "excel": "xlsx",
+                "spreadsheet": "xlsx",
+                "sheet": "xlsx",
+                "ppt": "pptx",
+                "pptx": "pptx",
+                "powerpoint": "pptx",
+                "presentation": "pptx",
+                "pdf": "pdf",
+                "txt": "txt",
+                "text": "txt",
+                "plain text": "txt",
+                "zip": "zip",
+                "zip file": "zip",
+                "archive": "zip",
+            }
+            resolved_targets = {format_flags.get(fmt, fmt) for fmt in normalized}
+            base_options["include_pdf"] = "pdf" in resolved_targets
+            base_options["include_xlsx"] = "xlsx" in resolved_targets
+            base_options["include_pptx"] = "pptx" in resolved_targets
+            base_options["include_txt"] = "txt" in resolved_targets
+            if len(resolved_targets) > 1:
+                base_options["zip_all"] = True
+            if "zip" in resolved_targets:
+                base_options["zip_all"] = True
+            primary_preference = next(
+                (fmt for fmt in ("docx", "xlsx", "pptx", "pdf", "txt") if fmt in resolved_targets),
+                base_options.get("primary_format", "docx"),
+            )
+            base_options["primary_format"] = primary_preference
+        return base_options

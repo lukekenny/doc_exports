@@ -79,15 +79,17 @@ docker compose -f docker-compose.portainer.yml up -d
 Volumes defined in that file keep `/data`, `/app/storage`, and `/app/templates` persistent across container restarts so Portainer can manage upgrades safely.
 
 ## Templates
-Sample `.docx` templates are generated on demand the first time the app imports its settings. No binary documents are stored in git—`export_service.template_setup` writes simple Word files that already contain the docxtpl placeholders referenced in `docs/TEMPLATES.md` and drops a placeholder logo under `templates/assets/logo.png`.
+Sample templates for every supported format (DOCX, XLSX, PPTX, and TXT) are generated on demand the first time the app imports its settings. No binary documents are stored in git or baked into the image—`export_service.template_setup` writes the files under `templates/` alongside a placeholder logo in `templates/assets/logo.png`.
 
-To recreate or customize them locally run:
+When running via Docker or Docker Compose, keep the `templates/` path mounted as a volume (already configured in `docker-compose.yml` and `docker-compose.portainer.yml`) so the generated files persist across restarts and upgrades. On first boot the container will create any missing templates inside that volume.
+
+To regenerate them manually or force fresh copies locally, run:
 
 ```
 python -m export_service.template_setup --force
 ```
 
-You can then open the generated `.docx` files in Word, make stylistic tweaks, and keep them outside of version control.
+You can then open the generated files in Word/Excel/PowerPoint or a text editor, make stylistic tweaks, and keep them outside of version control.
 
 ### XLSX-only requests
 To request only an Excel workbook (no DOCX/PDF), set the render options accordingly and include your table data. Table rows can be provided as dictionaries **or** as ordered lists; list values are mapped to the provided `columns` and padded with `null` for missing cells. Extra values beyond the declared columns are kept using `column_#` keys.
@@ -125,12 +127,22 @@ Sets `CELERY_TASK_ALWAYS_EAGER=1` so Celery tasks run synchronously.
 ## Open WebUI Integration
 `openwebui_plugin/export_tool.py` is a fully compliant Open WebUI **Tools** plugin. Paste the contents into the Tools workspace ("Create Tool" → "Import from file") to expose a callable `export_session` function to the assistant or code interpreter. Configure the following environment variables in Open WebUI so the tool can reach this service:
 
-| Variable | Purpose |
-| --- | --- |
-| `EXPORT_SERVICE_URL` | Base URL for the FastAPI export service (e.g., `http://localhost:8000`). |
-| `EXPORT_API_KEY` | Bearer token that must match the `API_KEY` configured on the export service. |
-| `EXPORT_POLL_INTERVAL` | Optional override (seconds) for status polling cadence. |
-| `EXPORT_POLL_TIMEOUT` | Optional override (seconds) for how long to wait before returning an in-progress status. |
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `EXPORT_SERVICE_URL` | Base URL for the FastAPI export service. | `http://oracle-docker.smallcreek.com.au:8123` |
+| `EXPORT_API_KEY` | Bearer token that must match the `API_KEY` configured on the export service. | `change-me` |
+| `EXPORT_POLL_INTERVAL` | Optional override (seconds) for status polling cadence. | `1.5` |
+| `EXPORT_POLL_TIMEOUT` | Optional override (seconds) for how long to wait before returning an in-progress status. | `60` |
+
+### Format prompts
+The Document Exporter tool normalizes human-friendly requests into the correct render flags:
+
+- **Word**: use formats like `word`, `docx`, or `doc` to keep the primary download as a Word report.
+- **Excel**: mention `excel`, `spreadsheet`, or `xlsx` to turn on spreadsheet output and prioritize that file when `zip_all` is `false`.
+- **PowerPoint**: ask for a `presentation`, `pptx`, or `PowerPoint` deck to receive slides.
+- **PDF**: specify `pdf` to enable DOCX → PDF conversion.
+- **Text**: use `text` or `txt` to include a plain text summary.
+- **ZIP**: asking for multiple formats (or mentioning `zip`) automatically bundles every artifact.
 
 The tool accepts session metadata (title, summary, sections, tables, and rendering options), queues an export job, and optionally waits for the download URL to become available—all from within the native Python tool runtime described in the [Open WebUI plugin documentation](https://openwebui.com/).
 

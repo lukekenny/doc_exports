@@ -1,4 +1,4 @@
-"""Utilities that ensure sample docxtpl templates exist without storing binaries in git."""
+"""Utilities that ensure sample templates exist without storing binaries in git."""
 
 from __future__ import annotations
 
@@ -7,11 +7,14 @@ from pathlib import Path
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt
+from openpyxl import Workbook
 from PIL import Image, ImageDraw, ImageFont
+from pptx import Presentation
+from pptx.util import Inches, Pt as PptPt
 
 
 def ensure_sample_templates(template_dir: Path, assets_dir: Path, force: bool = False) -> None:
-    """Create simple DOCX templates + logo if they are missing."""
+    """Create simple templates + logo if they are missing."""
 
     template_dir.mkdir(parents=True, exist_ok=True)
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -19,6 +22,9 @@ def ensure_sample_templates(template_dir: Path, assets_dir: Path, force: bool = 
     _create_logo(assets_dir / "logo.png", force=force)
     _create_summary_template(template_dir / "summary_template.docx", force=force)
     _create_full_report_template(template_dir / "full_report_template.docx", force=force)
+    _create_spreadsheet_template(template_dir / "summary_template.xlsx", force=force)
+    _create_text_template(template_dir / "summary_template.txt", force=force)
+    _create_presentation_template(template_dir / "summary_template.pptx", force=force)
 
 
 def _create_logo(path: Path, force: bool = False) -> None:
@@ -65,6 +71,89 @@ def _create_summary_template(path: Path, force: bool = False) -> None:
     doc.add_paragraph("{% else %}No tables supplied.{% endif %}")
 
     doc.save(path)
+
+
+def _create_spreadsheet_template(path: Path, force: bool = False) -> None:
+    if path.exists() and not force:
+        return
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Summary"
+    sheet["A1"] = "Title"
+    sheet["B1"] = "{{ title }}"
+    sheet["A2"] = "Summary"
+    sheet["B2"] = "{{ summary }}"
+    sheet["A4"] = "Table name"
+    sheet["B4"] = "Value"
+    sheet["A5"] = "{% for table in tables %}{{ table.name }}{% endfor %}"
+    sheet["B5"] = "Rows: {{ table.rows|length }}"
+    workbook.save(path)
+
+
+def _create_text_template(path: Path, force: bool = False) -> None:
+    if path.exists() and not force:
+        return
+
+    path.write_text(
+        "\n".join(
+            [
+                "{{ title }}",
+                "================",
+                "{{ summary }}",
+                "",
+                "{% for section in sections %}",
+                "## {{ section.heading }}",
+                "{{ section.body }}",
+                "",
+                "{% endfor %}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _create_presentation_template(path: Path, force: bool = False) -> None:
+    if path.exists() and not force:
+        return
+
+    presentation = Presentation()
+    title_slide_layout = presentation.slide_layouts[0]
+    title_slide = presentation.slides.add_slide(title_slide_layout)
+    title_slide.shapes.title.text = "{{ title }}"
+    if title_slide.placeholders and len(title_slide.placeholders) > 1:
+        title_slide.placeholders[1].text = "{{ summary }}"
+
+    bullet_layout = presentation.slide_layouts[1]
+    section_slide = presentation.slides.add_slide(bullet_layout)
+    section_slide.shapes.title.text = "Sections"
+    body_shape = section_slide.shapes.placeholders[1]
+    tf = body_shape.text_frame
+    tf.text = "{% for section in sections %}{{ section.heading }}"
+    p = tf.add_paragraph()
+    p.text = "{{ section.body }}"
+    p.level = 1
+    tf.add_paragraph().text = "{% endfor %}"
+
+    table_layout = presentation.slide_layouts[5]
+    table_slide = presentation.slides.add_slide(table_layout)
+    table_slide.shapes.title.text = "Tables"
+    left = Inches(0.5)
+    top = Inches(2)
+    width = Inches(9)
+    height = Inches(1.5)
+    table_shape = table_slide.shapes.add_table(2, 2, left, top, width, height).table
+    table_shape.cell(0, 0).text = "Table"
+    table_shape.cell(0, 1).text = "Rows"
+    table_shape.cell(1, 0).text = "{% for table in tables %}{{ table.name }}{% endfor %}"
+    table_shape.cell(1, 1).text = "{{ table.rows|length }}"
+
+    for cell in table_shape.iter_cells():
+        for paragraph in cell.text_frame.paragraphs:
+            for run in paragraph.runs:
+                run.font.size = PptPt(14)
+
+    presentation.save(path)
 
 
 def _create_full_report_template(path: Path, force: bool = False) -> None:

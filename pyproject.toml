@@ -17,6 +17,7 @@ dependencies = [
     "pandas",
     "openpyxl",
     "pillow",
+    "python-pptx",
     "celery[redis]",
     "redis",
     "python-dateutil",

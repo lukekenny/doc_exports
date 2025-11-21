@@ -12,6 +12,7 @@ from .doc_renderer import DocRenderer
 from .excel_renderer import ExcelRenderer
 from .models import ExportRequest
 from .pdf_converter import LibreOfficeNotFound, docx_to_pdf
+from .ppt_renderer import PowerPointRenderer
 from .storage import storage_client
 from .text_renderer import TextRenderer
 from .worker import celery_app
@@ -53,33 +54,39 @@ def process_export(job_id: str):
         doc_renderer = DocRenderer()
         excel_renderer = ExcelRenderer()
         text_renderer = TextRenderer()
-        artifacts = []
+        ppt_renderer = PowerPointRenderer()
+        artifacts: dict[str, Path] = {}
         docx_path = doc_renderer.render(payload, temp_dir)
-        artifacts.append(docx_path)
+        artifacts["docx"] = docx_path
         _update_job(job_id, progress=30)
         if payload.options.include_txt:
             txt_path = text_renderer.render(payload, temp_dir)
-            artifacts.append(txt_path)
-        _update_job(job_id, progress=45)
+            artifacts["txt"] = txt_path
+        _update_job(job_id, progress=40)
         xlsx_path = None
         if payload.options.include_xlsx:
             xlsx_path = excel_renderer.render(payload, temp_dir)
             if xlsx_path:
-                artifacts.append(xlsx_path)
-        _update_job(job_id, progress=60)
+                artifacts["xlsx"] = xlsx_path
+        _update_job(job_id, progress=55)
+        if payload.options.include_pptx:
+            pptx_path = ppt_renderer.render(payload, temp_dir)
+            artifacts["pptx"] = pptx_path
+        _update_job(job_id, progress=70)
         if payload.options.include_pdf:
             try:
                 pdf_path = docx_to_pdf(docx_path, temp_dir)
-                artifacts.append(pdf_path)
+                artifacts["pdf"] = pdf_path
             except LibreOfficeNotFound as exc:
                 _update_job(job_id, status="failed", error_message=str(exc))
                 return
         _update_job(job_id, progress=80)
         if payload.options.zip_all:
-            zip_path = bundle(job_id, artifacts, temp_dir)
+            zip_path = bundle(job_id, list(artifacts.values()), temp_dir)
             result_path = zip_path
         else:
-            result_path = artifacts[0]
+            preferred = (payload.options.primary_format or "docx").lower()
+            result_path = artifacts.get(preferred) or artifacts.get("docx") or next(iter(artifacts.values()))
         _finalize(job_id, result_path)
     except Exception as exc:  # noqa: BLE001
         _update_job(job_id, status="failed", error_message=str(exc))

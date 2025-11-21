@@ -9,6 +9,9 @@ storage/
 .mypy_cache/
 celerybeat-schedule
 templates/*.docx
+templates/*.xlsx
+templates/*.pptx
+templates/*.txt
 !templates/.gitkeep
 templates/assets/*
 !templates/assets/.gitkeep
